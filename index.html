@@ -180,6 +180,13 @@ textarea.inp{min-height:64px;resize:vertical}
 .tile .delta{font-size:12px;font-weight:650}
 .delta.up{color:var(--diaper)} .delta.down{color:var(--danger)} .delta.flat{color:var(--muted)}
 .settings .card{padding:16px}
+.vd-toggle{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:11px 12px;margin:0 0 12px;font-weight:650;text-align:left}
+.vd-toggle[aria-pressed="true"]{border-color:#E0B21B;background:color-mix(in srgb,#F5C518 16%,var(--surface))}
+.vd-box{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);display:grid;place-items:center;font-size:14px;font-weight:800;flex:none}
+.vd-toggle[aria-pressed="true"] .vd-box{background:#E0B21B;border-color:#E0B21B;color:#fff}
+.vd-status{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:10px 14px;border-radius:14px;background:var(--surface);border:1px dashed var(--line);font-size:14px;color:var(--muted)}
+.vd-status.ok{border-style:solid;border-color:color-mix(in srgb,#E0B21B 60%,var(--line));background:color-mix(in srgb,#F5C518 12%,var(--surface));color:var(--text)}
+.cvd{position:absolute;right:2%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:#E0B21B;pointer-events:none}
 .cal-card{padding:14px 12px 12px}
 .cal-big{text-align:center;font-size:34px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
 .cal-big small{font-size:18px;font-weight:600;margin-left:6px;color:var(--muted)}
@@ -426,6 +433,7 @@ function viewHome(){
   ${S.timers.sleep ? `<button type="button" class="banner sleep" data-open="sleep">${I.moon.replace("<svg",'<svg width="22" height="22"')}<div><b>Sleeping</b><div style="font-size:12px;opacity:.85">since ${fmtTime(S.timers.sleep.start)} · tap to wake</div></div><span class="t" data-live="sleepT"></span></button>` : ""}
   ${S.timers.feed ? `<button type="button" class="banner feed" data-open="feed">${I.bottle.replace("<svg",'<svg width="22" height="22"')}<div><b>Breastfeeding</b><div style="font-size:12px;opacity:.85">${S.timers.feed.side ? (S.timers.feed.side==="L"?"Left":"Right")+" side" : "Paused"}</div></div><span class="t" data-live="feedT"></span></button>` : ""}
   ${nextSide && !S.timers.feed ? `<div class="hint" style="margin:10px 4px 0">Next breast side: <b style="color:var(--feed)">${nextSide}</b> (last ended on ${nextSide==="Left"?"right":"left"})</div>` : ""}
+  ${vitDStatus()}
   <h2 class="sec">Today so far</h2>
   <div class="stats">
     <div class="card stat"><div class="k"><span class="sw" style="background:var(--feed)"></span>Feeds</div><div class="v">${T.feeds}</div><div class="d">${T.ml ? vol(T.ml)+" bottle" : "No bottles"}${T.breastMs ? " · "+fmtDur(T.breastMs)+" nursing" : ""}</div></div>
@@ -437,9 +445,14 @@ function viewHome(){
   <div class="card list">${recent.length ? recent.map(rowHtml).join("") : `<div class="empty">Nothing logged yet.<br>Tap <b>Feed</b>, <b>Diaper</b> or <b>Sleep</b> above to start.</div>`}</div>`;
 }
 
+function vitDStatus(){
+  const t0 = sod(Date.now());
+  const given = S.entries.filter(e => e.vitD && e.start >= t0).sort((a,b) => a.start - b.start)[0];
+  return `<div class="vd-status${given ? " ok" : ""}">💊 <span>${given ? `Vitamin D given today at <b>${fmtTime(given.start)}</b>` : "Vitamin D not given yet today"}</span></div>`;
+}
 function rowHtml(e){
   const d = describe(e);
-  return `<button type="button" class="row" data-edit="${e.id}"><div class="ic ${e.type}">${TYPE_IC[e.type]}</div><div class="main"><b>${esc(d.title)}</b><span>${esc(e.note ? d.sub+" · "+e.note : d.sub)}</span></div><time>${fmtTime(e.start)}</time></button>`;
+  return `<button type="button" class="row" data-edit="${e.id}"><div class="ic ${e.type}">${TYPE_IC[e.type]}</div><div class="main"><b>${esc(d.title)}</b><span>${e.vitD ? "💊 Vitamin D · " : ""}${esc(e.note ? d.sub+" · "+e.note : d.sub)}</span></div><time>${fmtTime(e.start)}</time></button>`;
 }
 
 function viewHistory(){
@@ -626,6 +639,8 @@ function calendarCard(){
       if(e.start < d || e.start >= e1) continue;
       if(e.type === "feed" && (f === "feed" || f === "all"))
         m += `<button type="button" class="cm feed${f === "all" ? " l" : ""}" data-edit="${e.id}" style="top:${pct(e.start - d)}" title="${esc(fmtTime(e.start) + " · " + describe(e).title)}"></button>`;
+      if(e.vitD && (f === "feed" || f === "all" || f === e.type) && e.type !== "sleep")
+        m += `<span class="cvd" style="top:${pct(e.start - d)}"></span>`;
       if(e.type === "diaper" && (f === "diaper" || f === "all"))
         m += `<button type="button" class="cm ${e.kind}${f === "all" ? " r" : ""}" data-edit="${e.id}" style="top:${pct(e.start - d)}" title="${esc(fmtTime(e.start) + " · " + describe(e).title)}"></button>`;
     }
@@ -637,7 +652,7 @@ function calendarCard(){
   let grid = "";
   for(let h = 0; h <= 24; h += 3) grid += `<div class="cal-hl" style="top:${pct(h * H)}"><span>${pad(h)}</span></div>`;
   const range = new Date(d0).toLocaleDateString([], {month:"short", day:"numeric"}) + " – " + new Date(last).toLocaleDateString([], {month:"short", day:"numeric"});
-  const legend = f === "feed" ? `<i><span class="sw" style="background:var(--feed)"></span>Feed</i>`
+  const legend = f === "feed" ? `<i><span class="sw" style="background:var(--feed)"></span>Feed</i><i><span class="sw" style="background:#E0B21B;border-radius:50%"></span>Vitamin D</i>`
     : f === "diaper" ? `<i><span class="sw" style="background:var(--diaper)"></span>Wet</i><i><span class="sw" style="background:var(--dirty)"></span>Dirty</i><i><span class="sw" style="background:linear-gradient(90deg,var(--diaper) 50%,var(--dirty) 50%)"></span>Both</i>`
     : f === "sleep" ? `<i><span class="sw" style="background:var(--sleep)"></span>Sleep</i>`
     : `<i><span class="sw" style="background:var(--feed)"></span>Feed</i><i><span class="sw" style="background:var(--diaper)"></span>Diaper</i><i><span class="sw" style="background:var(--sleep);opacity:.4"></span>Sleep</i>`;
@@ -716,12 +731,13 @@ function bindInput(el){
   el.addEventListener("input", () => { D[k] = el.type === "number" ? (el.value === "" ? "" : +el.value) : el.value; });
 }
 const field = (label, k, type="text", extra="") => `<label class="f"><span>${label}</span><input class="inp" data-bind="${k}" type="${type}" value="${esc(D[k] ?? "")}" ${extra}></label>`;
-const noteField = () => `<label class="f"><span>Note (optional)</span><textarea class="inp" data-bind="note" placeholder="Anything worth remembering">${esc(D.note||"")}</textarea></label>`;
+const vitDToggle = () => `<button type="button" class="vd-toggle" data-act="vitd" aria-pressed="${!!D.vitD}"><span class="vd-box">${D.vitD ? "✓" : ""}</span>💊 Vitamin D given</button>`;
+const noteField = () => vitDToggle() + `<label class="f"><span>Note (optional)</span><textarea class="inp" data-bind="note" placeholder="Anything worth remembering">${esc(D.note||"")}</textarea></label>`;
 const sheetTitle = (type, text) => `<h3><span class="ic ${type}">${TYPE_IC[type]}</span>${text}</h3>`;
 
 function openFeed(entry){
   if(entry) D = {id:entry.id, kind:entry.kind, time:toInput(entry.start), amount:entry.amount!=null ? fromMl(entry.amount) : "", milk:entry.milk||"breastmilk",
-    leftMin:entry.left ? Math.round(entry.left/MIN) : "", rightMin:entry.right ? Math.round(entry.right/MIN) : "", lastSide:entry.lastSide, food:entry.food||"", grams:entry.grams||"", note:entry.note||""};
+    leftMin:entry.left ? Math.round(entry.left/MIN) : "", rightMin:entry.right ? Math.round(entry.right/MIN) : "", lastSide:entry.lastSide, food:entry.food||"", grams:entry.grams||"", note:entry.note||"", vitD:!!entry.vitD};
   else {
     const lastBottle = lastOf("feed", e => e.kind==="bottle");
     const lastFeed = lastOf("feed");
@@ -741,7 +757,7 @@ function feedSheet(){
     const sideBtn = s => `<button type="button" class="side" data-side="${s}" aria-pressed="${f && f.side===s}"><b>${s==="L"?"Left":"Right"}</b><span class="t" data-live="feed${s}">00:00</span><small>${f && f.side===s ? "Running · tap to pause" : f ? "Tap to switch" : suggest===s ? "Suggested next" : "Tap to start"}</small></button>`;
     body = `<div class="timer"><div class="big" data-live="feedT">00:00</div><div class="lbl">${f ? (f.side ? "Started "+fmtTime(f.startedAt) : "Paused") : "Tap a side to start the timer"}</div></div>
       <div class="sides">${sideBtn("L")}${sideBtn("R")}</div>
-      ${f ? `<div class="btnrow"><button type="button" class="btn danger" data-act="feed-discard">Discard</button><button type="button" class="btn feed" data-act="feed-stop">Done · save</button></div>` : ""}
+      ${f ? vitDToggle() + `<div class="btnrow"><button type="button" class="btn danger" data-act="feed-discard">Discard</button><button type="button" class="btn feed" data-act="feed-stop">Done · save</button></div>` : ""}
       ${f ? "" : `<div class="divider">or log a past feed</div>
       <label class="f"><span>Started</span><input class="inp" data-bind="time" type="datetime-local" value="${esc(D.time)}"></label>
       <div class="two">${field("Left (minutes)","leftMin","number",'inputmode="numeric" min="0" placeholder="0"')}${field("Right (minutes)","rightMin","number",'inputmode="numeric" min="0" placeholder="0"')}</div>
@@ -783,6 +799,7 @@ function saveFeed(){
     Object.assign(e, {food:(D.food||"").trim(), grams:+D.grams || undefined});
   }
   if(D.note && D.note.trim()) e.note = D.note.trim();
+  if(D.vitD) e.vitD = true;
   upsert(e); closeSheet(); toast(D.id ? "Feed updated" : "Feed logged");
 }
 function feedTap(side){
@@ -801,12 +818,12 @@ function feedStop(){
   const total = (f.L||0) + (f.R||0);
   delete S.timers.feed;
   if(total < 1000){ save(); closeSheet(); render(); toast("Timer discarded (too short)"); return; }
-  upsert({id:uid(), type:"feed", kind:"breast", start:f.startedAt, end:now, left:Math.round(f.L||0), right:Math.round(f.R||0), lastSide:f.lastSide || (f.R > f.L ? "R" : "L")});
+  upsert({id:uid(), type:"feed", kind:"breast", start:f.startedAt, end:now, left:Math.round(f.L||0), right:Math.round(f.R||0), lastSide:f.lastSide || (f.R > f.L ? "R" : "L"), ...(D.vitD ? {vitD:true} : {})});
   closeSheet(); toast("Breastfeed saved · "+fmtDur(total));
 }
 
 function openDiaper(entry){
-  D = entry ? {id:entry.id, kind:entry.kind, time:toInput(entry.start), note:entry.note||""} : {kind:"wet", time:toInput(Date.now()), note:""};
+  D = entry ? {id:entry.id, kind:entry.kind, time:toInput(entry.start), note:entry.note||"", vitD:!!entry.vitD} : {kind:"wet", time:toInput(Date.now()), note:""};
   openSheet(() => {
     const opts = [["wet","💧","Wet"],["dirty","💩","Dirty"],["mixed","💧💩","Both"],["dry","✨","Dry"]];
     return sheetTitle("diaper", D.id ? "Edit diaper" : "Diaper change") +
@@ -819,12 +836,13 @@ function openDiaper(entry){
 function saveDiaper(){
   const e = {id:D.id || uid(), type:"diaper", kind:D.kind, start:fromInput(D.time)};
   if(D.note && D.note.trim()) e.note = D.note.trim();
+  if(D.vitD) e.vitD = true;
   upsert(e); closeSheet(); toast(D.id ? "Diaper updated" : "Diaper logged");
 }
 
 function openSleep(entry){
   const now = Date.now();
-  D = entry ? {id:entry.id, time:toInput(entry.start), endTime:toInput(entry.end), note:entry.note||""}
+  D = entry ? {id:entry.id, time:toInput(entry.start), endTime:toInput(entry.end), note:entry.note||"", vitD:!!entry.vitD}
     : {time:toInput(now - H), endTime:toInput(now), note:""};
   openSheet(() => {
     const t = S.timers.sleep;
@@ -848,6 +866,7 @@ function saveSleep(){
   if(e - s > 20*H){ toast("That's over 20 hours — check the times"); return; }
   const en = {id:D.id || uid(), type:"sleep", start:s, end:e};
   if(D.note && D.note.trim()) en.note = D.note.trim();
+  if(D.vitD) en.vitD = true;
   upsert(en); closeSheet(); toast(D.id ? "Sleep updated" : "Sleep logged · "+fmtDur(e-s));
 }
 
@@ -877,11 +896,11 @@ function download(name, text, type){
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function exportCsv(){
-  const head = ["type","kind","start","end","duration_min","left_min","right_min","amount_ml","milk","food","grams","note"];
+  const head = ["type","kind","start","end","duration_min","left_min","right_min","amount_ml","milk","food","grams","vitamin_d","note"];
   const iso = t => t ? new Date(t).toISOString() : "";
   const q = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines = sorted().reverse().map(e => [e.type, e.kind||"", iso(e.start), iso(e.end), e.end ? Math.round((e.end-e.start)/MIN) : "",
-    e.left ? Math.round(e.left/MIN) : "", e.right ? Math.round(e.right/MIN) : "", e.amount ?? "", e.milk||"", e.food||"", e.grams||"", e.note||""].map(q).join(","));
+    e.left ? Math.round(e.left/MIN) : "", e.right ? Math.round(e.right/MIN) : "", e.amount ?? "", e.milk||"", e.food||"", e.grams||"", e.vitD ? "yes" : "", e.note||""].map(q).join(","));
   download("little-log-"+dayKey(Date.now())+".csv", [head.join(","), ...lines].join("\n"), "text/csv");
 }
 
@@ -1038,6 +1057,7 @@ document.addEventListener("click", ev => {
   if(ds.unit){ S.settings.unit = ds.unit; save(); render(); return; }
   if(ds.themeSet){ S.settings.theme = ds.themeSet; save(); render(); return; }
   switch(ds.act){
+    case "vitd": D.vitD = !D.vitD; refreshSheet(); return;
     case "feed-save": return saveFeed();
     case "feed-stop": return feedStop();
     case "feed-discard": if(confirm("Discard this feeding timer?")){ delete S.timers.feed; save(); closeSheet(); render(); } return;
