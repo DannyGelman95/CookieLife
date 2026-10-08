@@ -180,6 +180,42 @@ textarea.inp{min-height:64px;resize:vertical}
 .tile .delta{font-size:12px;font-weight:650}
 .delta.up{color:var(--diaper)} .delta.down{color:var(--danger)} .delta.flat{color:var(--muted)}
 .settings .card{padding:16px}
+.cal-card{padding:14px 12px 12px}
+.cal-big{text-align:center;font-size:34px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.cal-big small{font-size:18px;font-weight:600;margin-left:6px;color:var(--muted)}
+.cal-sub{text-align:center;font-size:13px;color:var(--muted);margin:2px 0 8px}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin:4px 0 6px}
+.cal-nav span{font-weight:700;font-size:14px}
+.cal-nav .iconbtn{font-size:22px;line-height:1;color:var(--text)}
+.cal-nav .iconbtn:disabled{opacity:.3}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);margin-left:26px;position:relative}
+.cal-dh{text-align:center;padding:14px 0 6px;border-radius:10px 10px 0 0;position:relative}
+.cal-dh i{position:absolute;top:0;left:4px;font-style:normal;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase}
+.cal-dh small{display:block;font-size:11px;font-weight:700;color:var(--muted)}
+.cal-dh b{font-size:17px;font-variant-numeric:tabular-nums}
+.cal-dh.on{background:var(--accent);color:var(--accent-ink)} .cal-dh.on small,.cal-dh.on i{color:inherit;opacity:.85}
+.cal-body{position:relative;height:440px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cal-night{position:absolute;left:26px;right:0;background:var(--surface-2)}
+.cal-hl{position:absolute;left:26px;right:0;border-top:1px dashed var(--line)}
+.cal-hl span{position:absolute;left:-26px;top:-7px;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cal-cols{position:absolute;left:26px;right:0;top:0;bottom:0;display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-col{position:relative}
+.cal-col.on{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.cm,.cs{position:absolute;border:0;padding:0;margin:0;cursor:pointer}
+.cm{left:14%;right:14%;height:5px;margin-top:-2.5px;border-radius:3px}
+.cm::before{content:"";position:absolute;inset:-6px -3px}
+.cm.l{left:6%;right:52%} .cm.r{left:52%;right:6%}
+.cm.feed{background:var(--feed)} .cm.wet{background:var(--diaper)} .cm.dirty{background:var(--dirty)}
+.cm.mixed{background:linear-gradient(90deg,var(--diaper) 50%,var(--dirty) 50%)} .cm.dry{background:var(--muted)}
+.cs{left:22%;right:22%;border-radius:4px;background:var(--sleep);opacity:.9}
+.cs.bg{left:2%;right:2%;opacity:.28}
+.cal-now{position:absolute;left:0;right:0;height:2px;margin-top:-1px;background:var(--text);opacity:.55;pointer-events:none}
+.cal-now::after{content:"";position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--text)}
+.cal-legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:10px 0 2px;font-size:12px;color:var(--muted)}
+.cal-legend i{font-style:normal;display:inline-flex;align-items:center;gap:5px}
+.cal-cmp{text-align:center;font-size:13px;margin-top:6px}
+.cal-cmp .arr{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;margin-right:6px;font-weight:800;font-size:12px}
+.cal-cmp .arr.up{background:var(--feed-soft);color:var(--feed)} .cal-cmp .arr.down{background:var(--sleep-soft);color:var(--sleep)}
 .iconbtn{position:relative;color:var(--muted)}
 .syncdot{position:absolute;right:6px;bottom:6px;width:9px;height:9px;border-radius:50%;border:2px solid var(--surface);background:var(--line)}
 .syncdot.ok{background:var(--diaper)} .syncdot.busy{background:var(--sleep);animation:pulse 1s infinite} .syncdot.error{background:var(--danger)}
@@ -477,31 +513,6 @@ function readout(id, i){
   const parts = c.series.map(s => `${s.name} <b>${c.fmt(s.get(r))}</b>`);
   return `<b>${dayLabel(r.start)}</b> · ` + parts.join(" · ");
 }
-function patternChart(rows){
-  const W = 340, rowH = rows.length > 14 ? 9 : 16, gap = rows.length > 14 ? 3 : 5, L = 40, T = 14;
-  const iw = W - L - 4, Hh = T + rows.length*(rowH+gap) + 4;
-  const x = ms => L + ms/DAY*iw;
-  let s = "";
-  [0,6,12,18,24].forEach(h => { s += `<line class="grid" x1="${x(h*H)}" x2="${x(h*H)}" y1="${T-2}" y2="${Hh}"/><text x="${x(h*H)}" y="9" text-anchor="middle">${h===24?"":h===0?"12a":h===12?"12p":h<12?h+"a":(h-12)+"p"}</text>`; });
-  rows.slice().reverse().forEach((r, i) => {
-    const y = T + i*(rowH+gap), d0 = r.start, d1 = d0 + DAY;
-    const d = new Date(d0);
-    s += `<text x="${L-6}" y="${y+rowH/2+3}" text-anchor="end">${rows.length<=7 ? d.toLocaleDateString([], {weekday:"short"}) : (d.getMonth()+1)+"/"+d.getDate()}</text>`;
-    s += `<rect x="${L}" y="${y}" width="${iw}" height="${rowH}" rx="3" fill="var(--surface-2)"/>`;
-    for(const e of S.entries){
-      if(e.type === "sleep" && e.end > d0 && e.start < d1){
-        const a = Math.max(e.start, d0) - d0, b = Math.min(e.end, d1) - d0;
-        s += `<rect x="${x(a)}" y="${y}" width="${Math.max(1, x(b)-x(a))}" height="${rowH}" rx="2" fill="var(--sleep)" opacity=".85"/>`;
-      }
-    }
-    for(const e of S.entries){
-      if(e.start < d0 || e.start >= d1) continue;
-      if(e.type === "feed") s += `<circle cx="${x(e.start-d0)}" cy="${y+rowH/2}" r="${rowH/3.4}" fill="var(--feed)" stroke="var(--surface)" stroke-width="1"/>`;
-      if(e.type === "diaper") s += `<rect x="${x(e.start-d0)-1}" y="${y+rowH-3}" width="2.5" height="3" fill="${e.kind==="dirty"||e.kind==="mixed"?"var(--dirty)":"var(--diaper)"}"/>`;
-    }
-  });
-  return `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Daily pattern">${s}</svg>`;
-}
 function longestSleep(from){
   let best = 0;
   for(const e of S.entries) if(e.type === "sleep" && e.end > from) best = Math.max(best, e.end - e.start);
@@ -546,7 +557,7 @@ function viewTrends(){
   const s3 = barChart("nurse", rows, [{name:"Nursing", color:"var(--feed)", get:r => Math.round(r.breastMs/MIN)}], {fmt:v => fmtDur(v*MIN), axis:v => Math.round(v), sel:chartSel.nurse, label:"Nursing minutes per day", min:20});
   const s4 = barChart("dia", rows, [{name:"Wet", color:"var(--diaper)", get:r => r.wet - r.mixed}, {name:"Dirty", color:"var(--dirty)", get:r => r.dirty - r.mixed}, {name:"Both", color:"color-mix(in srgb, var(--dirty) 50%, var(--diaper))", get:r => r.mixed}, {name:"Dry", color:"var(--line)", get:r => r.diapers - r.wet - r.dirty + r.mixed}], {fmt:v => (+v.toFixed(1))+"", sel:chartSel.dia, label:"Diapers per day", min:4});
   const s5 = barChart("sleep", rows, [{name:"Sleep", color:"var(--sleep)", get:r => hrs(r.sleepMs)}], {fmt:v => fmtDur(v*H), axis:v => v+"h", sel:chartSel.sleep, label:"Sleep hours per day", min:4});
-  return header("Trends") + `<div class="chips">${chips}</div>` + `<h2 class="sec">Averages</h2>` + tiles +
+  return header("Trends") + `<h2 class="sec" style="margin-top:6px">Through the day</h2>` + calendarCard() + `<div class="chips" style="margin-top:22px">${chips}</div>` + `<h2 class="sec">Averages</h2>` + tiles +
     `<h2 class="sec">Feeding</h2>` +
     C("ml", "Bottle volume", key("var(--feed)", "Per day")+`<i>– – Average</i>`, s1) +
     C("feeds", "Feeds per day", key("var(--feed)", "Bottle, breast & solids"), s2) +
@@ -555,8 +566,94 @@ function viewTrends(){
     C("dia", "Diapers per day", key("var(--diaper)", "Wet")+key("var(--dirty)", "Dirty")+key("color-mix(in srgb, var(--dirty) 50%, var(--diaper))", "Both")+key("var(--line)", "Dry"), s4) +
     `<h2 class="sec">Sleep</h2>` +
     C("sleep", "Sleep per day", key("var(--sleep)", "Hours"), s5) +
-    `<div class="card chart" style="margin-top:12px"><h4>Daily pattern</h4><div class="cap">${key("var(--sleep)", "Sleep")}${key("var(--feed)", "Feed")}${key("var(--diaper)", "Wet")}${key("var(--dirty)", "Dirty")}</div>${patternChart(rows)}</div>
-    <p class="hint" style="margin-top:12px;text-align:center">Averages leave out today, since it isn't over yet.</p>`;
+    `<p class="hint" style="margin-top:12px;text-align:center">Averages leave out today, since it isn't over yet.</p>`;
+}
+
+/* ---------- week calendar: when things happen through the day ---------- */
+let calWeek = 0, calFilter = "feed";
+const NIGHT_START = 19, NIGHT_END = 7;
+function windowStats(days){
+  const today = sod(Date.now()), first = firstDay();
+  const full = days.filter(d => d < today && d >= first);
+  const use = full.length ? full : days.filter(d => d >= first);
+  const tot = use.map(d => todayTotals(d, addDays(d, 1)));
+  const avg = f => tot.length ? tot.reduce((a, t) => a + f(t), 0) / tot.length : 0;
+  return {n:tot.length, feeds:avg(t => t.feeds), ml:avg(t => t.ml), diapers:avg(t => t.diapers), wet:avg(t => t.wet), dirty:avg(t => t.dirty), sleep:avg(t => t.sleepMs)};
+}
+function calendarCard(){
+  const today = sod(Date.now()), now = Date.now();
+  const last = addDays(today, -7 * calWeek);
+  const days = Array.from({length:7}, (_, i) => addDays(last, i - 6));
+  const d0 = days[0], d1 = addDays(last, 1);
+  const cur = windowStats(days), prev = windowStats(days.map(d => addDays(d, -7)));
+  const f = calFilter;
+  const pct = t => (t / DAY * 100).toFixed(3) + "%";
+
+  // headline + comparison with the 7 days before
+  const cmp = (a, b, fmt, word) => {
+    if(!cur.n || !prev.n || !b) return "";
+    const d = a - b; if(Math.abs(d) / b < 0.01) return `<div class="cal-cmp">Same as the previous 7 days</div>`;
+    return `<div class="cal-cmp"><span class="arr ${d > 0 ? "up" : "down"}">${d > 0 ? "↑" : "↓"}</span>${fmt(Math.abs(d))} ${d > 0 ? "more" : "less"}${word ? " " + word : ""} than the previous 7 days</div>`;
+  };
+  let big, sub, cm;
+  const v1 = n => (+n.toFixed(1)).toString();
+  if(f === "feed"){
+    big = cur.ml ? `${vol(cur.ml, false)}<small>${unit()} per day</small>` : `${v1(cur.feeds)}<small>feeds per day</small>`;
+    sub = `${v1(cur.feeds)} feeds a day` + (cur.feeds ? ` · about every ${fmtDur(DAY / cur.feeds)}` : "");
+    cm = cur.ml ? cmp(cur.ml, prev.ml, v => vol(v), "") : cmp(cur.feeds, prev.feeds, v1, "feeds");
+  } else if(f === "diaper"){
+    big = `${v1(cur.diapers)}<small>diapers per day</small>`;
+    sub = `${v1(cur.wet)} wet · ${v1(cur.dirty)} dirty a day`;
+    cm = cmp(cur.diapers, prev.diapers, v1, "diapers");
+  } else if(f === "sleep"){
+    big = `${fmtDur(cur.sleep)}<small>sleep per day</small>`;
+    let best = 0; for(const e of S.entries) if(e.type === "sleep" && e.end > d0 && e.start < d1) best = Math.max(best, e.end - e.start);
+    sub = best ? `Longest stretch ${fmtDur(best)}` : "No sleep logged this week";
+    cm = cmp(cur.sleep, prev.sleep, v => fmtDur(v), "sleep");
+  } else {
+    big = `<span style="font-size:20px">${v1(cur.feeds)} feeds · ${v1(cur.diapers)} diapers · ${fmtDur(cur.sleep)} sleep</span>`;
+    sub = "Average per day"; cm = "";
+  }
+
+  // marks per day column
+  const cols = days.map(d => {
+    const e1 = addDays(d, 1); let m = "";
+    for(const e of S.entries){
+      if(e.type === "sleep" && (f === "sleep" || f === "all") && e.end > d && e.start < e1){
+        const a = Math.max(e.start, d) - d, b = Math.min(e.end, e1) - d;
+        m += `<button type="button" class="cs${f === "all" ? " bg" : ""}" data-edit="${e.id}" style="top:${pct(a)};height:max(4px, ${pct(b - a)})" title="${esc(describe(e).title)}"></button>`;
+      }
+      if(e.start < d || e.start >= e1) continue;
+      if(e.type === "feed" && (f === "feed" || f === "all"))
+        m += `<button type="button" class="cm feed${f === "all" ? " l" : ""}" data-edit="${e.id}" style="top:${pct(e.start - d)}" title="${esc(fmtTime(e.start) + " · " + describe(e).title)}"></button>`;
+      if(e.type === "diaper" && (f === "diaper" || f === "all"))
+        m += `<button type="button" class="cm ${e.kind}${f === "all" ? " r" : ""}" data-edit="${e.id}" style="top:${pct(e.start - d)}" title="${esc(fmtTime(e.start) + " · " + describe(e).title)}"></button>`;
+    }
+    if(d === today) m += `<div class="cal-now" style="top:${pct(now - d)}"></div>`;
+    return `<div class="cal-col${d === today ? " on" : ""}">${m}</div>`;
+  }).join("");
+  const heads = days.map((d, i) => { const x = new Date(d);
+    return `<div class="cal-dh${d === today ? " on" : ""}">${i === 0 || x.getDate() === 1 ? `<i>${x.toLocaleDateString([], {month:"short"})}</i>` : ""}<small>${x.toLocaleDateString([], {weekday:"short"}).slice(0, 2)}</small><b>${x.getDate()}</b></div>`; }).join("");
+  let grid = "";
+  for(let h = 0; h <= 24; h += 3) grid += `<div class="cal-hl" style="top:${pct(h * H)}"><span>${pad(h)}</span></div>`;
+  const range = new Date(d0).toLocaleDateString([], {month:"short", day:"numeric"}) + " – " + new Date(last).toLocaleDateString([], {month:"short", day:"numeric"});
+  const legend = f === "feed" ? `<i><span class="sw" style="background:var(--feed)"></span>Feed</i>`
+    : f === "diaper" ? `<i><span class="sw" style="background:var(--diaper)"></span>Wet</i><i><span class="sw" style="background:var(--dirty)"></span>Dirty</i><i><span class="sw" style="background:linear-gradient(90deg,var(--diaper) 50%,var(--dirty) 50%)"></span>Both</i>`
+    : f === "sleep" ? `<i><span class="sw" style="background:var(--sleep)"></span>Sleep</i>`
+    : `<i><span class="sw" style="background:var(--feed)"></span>Feed</i><i><span class="sw" style="background:var(--diaper)"></span>Diaper</i><i><span class="sw" style="background:var(--sleep);opacity:.4"></span>Sleep</i>`;
+  return `<div class="card cal-card">
+    <div class="seg" style="margin-bottom:10px">${[["feed","Feeds"],["diaper","Diapers"],["sleep","Sleep"],["all","All"]].map(([k,l]) => `<button type="button" data-calf="${k}" aria-pressed="${f===k}">${l}</button>`).join("")}</div>
+    <div class="cal-big">${big}</div><div class="cal-sub">${sub}</div>
+    <div class="cal-nav"><button type="button" class="iconbtn" data-calnav="1" aria-label="Previous week">‹</button><span>${range}</span><button type="button" class="iconbtn" data-calnav="-1" aria-label="Next week" ${calWeek ? "" : "disabled"}>›</button></div>
+    <div class="cal-head">${heads}</div>
+    <div class="cal-body">
+      <div class="cal-night" style="top:0;height:${pct(NIGHT_END * H)}"></div><div class="cal-night" style="top:${pct(NIGHT_START * H)};bottom:0"></div>
+      ${grid}<div class="cal-cols">${cols}</div>
+    </div>
+    <div class="cap cal-legend">${legend}</div>
+    ${cm}
+    <p class="hint" style="margin:6px 0 0;text-align:center">Shaded = night (${NIGHT_START}:00–0${NIGHT_END}:00). Tap a mark to see or edit it.</p>
+  </div>`;
 }
 
 /* ---------- settings ---------- */
@@ -924,6 +1021,8 @@ document.addEventListener("click", ev => {
   if(ds.open === "sleep") return openSleep();
   if(ds.edit) return openEdit(ds.edit);
   if(ds.hfilter){ histFilter = ds.hfilter; render(); return; }
+  if(ds.calnav){ calWeek = Math.max(0, calWeek + +ds.calnav); const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+  if(ds.calf){ calFilter = ds.calf; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
   if(ds.range){ trendRange = +ds.range; chartSel = {}; render(); return; }
   if(ds.chart){
     const id = ds.chart, i = +ds.i;
