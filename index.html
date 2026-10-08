@@ -840,12 +840,14 @@ function syncCardHtml(){
       <p class="hint" style="margin:0 0 12px">Saving to <b>${esc(SY.repo)}</b> / ${esc(SY.path)}. Changes upload a few seconds after you log, and other devices pick them up within a minute.</p>
       <div class="btnrow"><button type="button" class="btn" data-act="sync-now">Sync now</button><button type="button" class="btn danger" data-act="sync-off">Disconnect</button></div>`;
   }
-  return `<p class="hint" style="margin:0 0 12px">Keep your log in a private GitHub repo so it survives a lost phone and both parents see the same data. You need a private repo and a fine-grained token with <b>Contents: Read and write</b> on that repo only.</p>
+  return `<p class="hint" style="margin:0 0 12px">Keep your log in a private GitHub repo so it survives a lost phone and both parents see the same data. You need a private repo and a GitHub access token.</p>
+    <a class="btn block" style="display:flex;align-items:center;justify-content:center;text-decoration:none;margin-bottom:6px" href="https://github.com/settings/tokens/new?scopes=repo&amp;description=Little%20Log" target="_blank" rel="noopener">1 · Create a token on GitHub ↗</a>
+    <p class="hint" style="margin:0 0 14px">The link opens GitHub with everything filled in. Set <b>Expiration</b> to <b>No expiration</b>, scroll down, tap <b>Generate token</b>, copy the code that starts with <b>ghp_</b> and paste it below.</p>
     <label class="f"><span>Repository (owner/name)</span><input class="inp" id="sy-repo" value="${esc(SY.repo || "DannyGelman95/CookieLife-data")}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <label class="f"><span>File in the repo</span><input class="inp" id="sy-path" value="${esc(SY.path || "littlelog.json")}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
-    <label class="f"><span>Access token</span><input class="inp" id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+    <label class="f"><span>Access token</span><input class="inp" id="sy-token" type="password" placeholder="ghp_… or github_pat_…" autocomplete="off"></label>
     ${syncState === "error" ? `<p class="hint" style="color:var(--danger)">${esc(syncMsg)}</p>` : ""}
-    <button type="button" class="btn primary block" data-act="sync-connect">Connect & sync</button>`;
+    <button type="button" class="btn primary block" data-act="sync-connect">2 · Connect & sync</button>`;
 }
 function gh(path, opt={}){
   return fetch("https://api.github.com/repos/" + SY.repo + path, {...opt, cache:"no-store",

@@ -25,9 +25,11 @@ GitHub repo (default `DannyGelman95/CookieLife-data`, file `littlelog.json`).
 Setup (once):
 1. Create a **private** repo, e.g. `CookieLife-data` (keep it private — this repo,
    `CookieLife`, is public).
-2. Create a fine-grained token at GitHub → Settings → Developer settings →
-   Personal access tokens → Fine-grained tokens: *Only select repositories* →
-   that repo, permission **Contents: Read and write**.
+2. Create a token: open
+   https://github.com/settings/tokens/new?scopes=repo&description=Little%20Log
+   (the app's Settings → Cloud sync has the same link), set Expiration to
+   *No expiration*, tap **Generate token** and copy the `ghp_…` code.
+   A fine-grained token with Contents: Read and write on the data repo also works.
 3. In the app: Settings → Cloud sync → paste the token → **Connect & sync**. Do
    the same on each phone.
 
