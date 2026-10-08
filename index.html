@@ -180,6 +180,11 @@ textarea.inp{min-height:64px;resize:vertical}
 .tile .delta{font-size:12px;font-weight:650}
 .delta.up{color:var(--diaper)} .delta.down{color:var(--danger)} .delta.flat{color:var(--muted)}
 .settings .card{padding:16px}
+.iconbtn{position:relative;color:var(--muted)}
+.syncdot{position:absolute;right:6px;bottom:6px;width:9px;height:9px;border-radius:50%;border:2px solid var(--surface);background:var(--line)}
+.syncdot.ok{background:var(--diaper)} .syncdot.busy{background:var(--sleep);animation:pulse 1s infinite} .syncdot.error{background:var(--danger)}
+.syncline{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px}
+.syncline .syncdot{position:static;border:0;flex:none}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
   background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;
   transition:.2s;z-index:30;pointer-events:none;max-width:calc(100% - 32px)}
@@ -204,6 +209,7 @@ const I = {
   list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
   chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.25 4.25 0 0 1-.5 8.5z"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
 };
 const TYPE_IC = {feed:I.bottle, diaper:I.diaper, sleep:I.moon};
@@ -212,16 +218,27 @@ const TYPE_IC = {feed:I.bottle, diaper:I.diaper, sleep:I.moon};
 const KEY = "littlelog.v1";
 const ML_PER_OZ = 29.5735;
 const H = 3600e3, DAY = 24*H, MIN = 60e3;
-function blank(){ return {baby:{name:"", birth:""}, settings:{unit:"ml", theme:"auto"}, entries:[], timers:{}}; }
+function blank(){ return {baby:{name:"", birth:""}, babyU:0, settings:{unit:"ml", theme:"auto"}, entries:[], deleted:{}, timers:{}, timersU:0}; }
 function load(){
   try{
     const s = JSON.parse(localStorage.getItem(KEY));
-    if(s && Array.isArray(s.entries)){ const b = blank(); return {...b, ...s, baby:{...b.baby,...s.baby}, settings:{...b.settings,...s.settings}, timers:s.timers||{}}; }
+    if(s && Array.isArray(s.entries)){ const b = blank(); return {...b, ...s, baby:{...b.baby,...s.baby}, settings:{...b.settings,...s.settings}, timers:s.timers||{}, deleted:s.deleted||{}}; }
   }catch(e){}
   return blank();
 }
 let S = load();
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+let lastTimers = JSON.stringify(S.timers), lastBaby = JSON.stringify(S.baby);
+// Any local change: stamp what changed so cloud merges know which copy is newer, then sync.
+function save(){
+  const t = JSON.stringify(S.timers), b = JSON.stringify(S.baby);
+  if(t !== lastTimers) S.timersU = Date.now();
+  if(b !== lastBaby) S.babyU = Date.now();
+  persist(); scheduleSync();
+}
+function persist(){
+  lastTimers = JSON.stringify(S.timers); lastBaby = JSON.stringify(S.baby);
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+}
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 let tab = "home", histFilter = "all", trendRange = 7;
 
@@ -329,12 +346,12 @@ function render(){
   $("#tabs").innerHTML = tabs.map(([k,l,ic]) => `<button type="button" data-tab="${k}" ${tab===k?'aria-current="page"':""}>${ic}<span>${l}</span></button>`).join("");
   const app = $("#app");
   app.innerHTML = ({home:viewHome, history:viewHistory, trends:viewTrends, settings:viewSettings})[tab]();
-  updateLive();
+  updateLive(); updateSyncUi();
 }
 
 function header(sub){
   const name = S.baby.name || "Your baby";
-  return `<header class="top"><div class="avatar" aria-hidden="true">👶</div><div><h1>${esc(name)}</h1><div class="sub">${esc(sub || babyAge() || "Tap Settings to add a name and birthday")}</div></div><div class="spacer"></div></header>`;
+  return `<header class="top"><div class="avatar" aria-hidden="true">👶</div><div><h1>${esc(name)}</h1><div class="sub">${esc(sub || babyAge() || "Tap Settings to add a name and birthday")}</div></div><div class="spacer"></div><button type="button" class="iconbtn" id="syncbtn" data-act="syncbtn" aria-label="Cloud sync">${I.cloud}<span id="syncdot" class="syncdot"></span></button></header>`;
 }
 
 function todayTotals(from, to){
@@ -556,9 +573,11 @@ function viewSettings(){
     <label class="f"><span>Appearance</span></label>
     <div class="seg" style="margin:0">${[["auto","Auto"],["light","Light"],["dark","Dark"]].map(([k,l]) => `<button type="button" data-theme-set="${k}" aria-pressed="${th===k}">${l}</button>`).join("")}</div>
   </div>
+  <h2 class="sec">Cloud sync · GitHub</h2>
+  <div class="card" id="synccard">${syncCardHtml()}</div>
   <h2 class="sec">Your data</h2>
   <div class="card">
-    <p class="hint" style="margin:0 0 12px">Everything stays on this device, in this browser. Export a backup to move it to another phone or keep it safe.</p>
+    <p class="hint" style="margin:0 0 12px">Entries are kept on this device and, when cloud sync is on, in your GitHub repo. A backup file is an extra copy you control.</p>
     <div class="btnrow"><button type="button" class="btn" data-act="export">Export backup</button><button type="button" class="btn" data-act="import">Import backup</button></div>
     <div class="btnrow"><button type="button" class="btn" data-act="csv">Export CSV</button><button type="button" class="btn" data-act="sample">Add sample data</button></div>
     <div class="btnrow"><button type="button" class="btn danger block" data-act="wipe">Delete all entries</button></div>
@@ -734,6 +753,7 @@ function saveSleep(){
 }
 
 function upsert(e){
+  e.u = Date.now();
   const i = S.entries.findIndex(x => x.id === e.id);
   if(i >= 0) S.entries[i] = e; else S.entries.push(e);
   save(); render();
@@ -741,8 +761,9 @@ function upsert(e){
 function removeEntry(id){
   const i = S.entries.findIndex(x => x.id === id); if(i < 0) return;
   const [gone] = S.entries.splice(i, 1);
+  S.deleted[id] = Date.now();
   save(); closeSheet(); render();
-  toast("Entry deleted", () => { S.entries.push(gone); save(); render(); });
+  toast("Entry deleted", () => { delete S.deleted[id]; gone.u = Date.now(); S.entries.push(gone); save(); render(); });
 }
 function openEdit(id){
   const e = S.entries.find(x => x.id === id); if(!e) return;
@@ -791,6 +812,130 @@ function sampleData(){
   return out;
 }
 
+/* ---------- cloud sync (GitHub repo file) ---------- */
+// The data is one JSON file in a (private) GitHub repo, read and written with the
+// Contents API using a fine-grained token kept only in this browser. Every device
+// merges by entry id (newest edit wins, deletions are kept as tombstones), so
+// several phones can log at once.
+const SYNC_KEY = "littlelog.sync";
+function loadSync(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; }catch(e){ return {}; } }
+let SY = loadSync();
+function saveSync(){ try{ localStorage.setItem(SYNC_KEY, JSON.stringify(SY)); }catch(e){} }
+let syncState = "off", syncMsg = "", syncing = false, syncAgain = false, syncTimer;
+const syncOn = () => !!(SY.token && SY.repo && SY.path);
+function scheduleSync(ms=2500){ if(!syncOn()) return; clearTimeout(syncTimer); syncTimer = setTimeout(sync, ms); }
+function setSync(st, msg=""){ syncState = st; syncMsg = msg; updateSyncUi(); }
+function updateSyncUi(){
+  const st = syncOn() ? syncState : "off";
+  const dot = $("#syncdot"); if(dot) dot.className = "syncdot " + st;
+  const b = $("#syncbtn"); if(b) b.title = !syncOn() ? "Cloud sync is off" : st==="error" ? "Sync failed: "+syncMsg : st==="busy" ? "Syncing…" : "Synced";
+  const c = $("#synccard"); const a = document.activeElement;
+  if(c && !(c.contains(a) && /INPUT|TEXTAREA/.test(a.tagName))) c.innerHTML = syncCardHtml();
+}
+function syncCardHtml(){
+  if(syncOn()){
+    const st = syncState === "error" ? `<span style="color:var(--danger)">Sync failed — ${esc(syncMsg)}</span>`
+      : syncState === "busy" ? "Syncing…" : SY.last ? "Synced " + ago(SY.last) : "Not synced yet";
+    return `<div class="syncline"><span class="syncdot ${syncState}"></span><span>${st}</span></div>
+      <p class="hint" style="margin:0 0 12px">Saving to <b>${esc(SY.repo)}</b> / ${esc(SY.path)}. Changes upload a few seconds after you log, and other devices pick them up within a minute.</p>
+      <div class="btnrow"><button type="button" class="btn" data-act="sync-now">Sync now</button><button type="button" class="btn danger" data-act="sync-off">Disconnect</button></div>`;
+  }
+  return `<p class="hint" style="margin:0 0 12px">Keep your log in a private GitHub repo so it survives a lost phone and both parents see the same data. You need a private repo and a fine-grained token with <b>Contents: Read and write</b> on that repo only.</p>
+    <label class="f"><span>Repository (owner/name)</span><input class="inp" id="sy-repo" value="${esc(SY.repo || "DannyGelman95/CookieLife-data")}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label class="f"><span>File in the repo</span><input class="inp" id="sy-path" value="${esc(SY.path || "littlelog.json")}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label class="f"><span>Access token</span><input class="inp" id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+    ${syncState === "error" ? `<p class="hint" style="color:var(--danger)">${esc(syncMsg)}</p>` : ""}
+    <button type="button" class="btn primary block" data-act="sync-connect">Connect & sync</button>`;
+}
+function gh(path, opt={}){
+  return fetch("https://api.github.com/repos/" + SY.repo + path, {...opt, cache:"no-store",
+    headers:{Authorization:"Bearer " + SY.token, Accept:"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28", ...(opt.headers||{})}});
+}
+async function ghErr(r){
+  let m = ""; try{ m = (await r.json()).message || ""; }catch(e){}
+  if(r.status === 401) return new Error("the token was rejected (expired or mistyped)");
+  if(r.status === 403) return new Error("the token can't write to this repo — give it Contents: Read and write");
+  if(r.status === 404) return new Error("repo not found, or the token can't see it");
+  return new Error(m || "GitHub error " + r.status);
+}
+const encPath = p => p.split("/").map(encodeURIComponent).join("/");
+function b64e(str){ const by = new TextEncoder().encode(str); let bin = ""; for(let i = 0; i < by.length; i += 0x8000) bin += String.fromCharCode.apply(null, by.subarray(i, i+0x8000)); return btoa(bin); }
+function b64d(b){ const bin = atob(b.replace(/\s/g, "")); const by = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) by[i] = bin.charCodeAt(i); return new TextDecoder().decode(by); }
+const ref = () => SY.branch ? "?ref=" + encodeURIComponent(SY.branch) : "";
+async function pull(){
+  const r = await gh("/contents/" + encPath(SY.path) + ref());
+  if(r.status === 404) return {data:null, sha:null};
+  if(!r.ok) throw await ghErr(r);
+  const j = await r.json();
+  let content = j.content;
+  if(!content){   // files over 1 MB come back without content; read the blob instead
+    const b = await gh("/git/blobs/" + j.sha); if(!b.ok) throw await ghErr(b);
+    content = (await b.json()).content;
+  }
+  return {data:JSON.parse(b64d(content)), sha:j.sha};
+}
+function payloadOf(x){
+  return {app:"littlelog", v:1, baby:x.baby || {}, babyU:x.babyU || 0, timers:x.timers || {}, timersU:x.timersU || 0,
+    entries:(x.entries || []).slice().sort((a,b) => a.start - b.start || (a.id < b.id ? -1 : 1)), deleted:x.deleted || {}};
+}
+function merge(R){
+  if(!R) return;
+  const del = {...(R.deleted || {})};
+  for(const k in S.deleted) del[k] = Math.max(del[k] || 0, S.deleted[k]);
+  const map = new Map();
+  for(const e of [...(R.entries || []), ...S.entries]){ const o = map.get(e.id); if(!o || (e.u || 0) > (o.u || 0)) map.set(e.id, e); }
+  S.entries = [...map.values()].filter(e => !(del[e.id] >= (e.u || 0)));
+  S.deleted = del;
+  if((R.babyU || 0) > (S.babyU || 0)){ S.baby = {...S.baby, ...R.baby}; S.babyU = R.babyU; }
+  if((R.timersU || 0) > (S.timersU || 0)){ S.timers = R.timers || {}; S.timersU = R.timersU; }
+}
+async function sync(){
+  if(!syncOn()) return;
+  if(syncing){ syncAgain = true; return; }
+  if(!navigator.onLine){ setSync("error", "offline — will sync when back online"); return; }
+  syncing = true; clearTimeout(syncTimer); setSync("busy");
+  try{
+    for(let attempt = 0; ; attempt++){
+      const {data, sha} = await pull();
+      const before = JSON.stringify(payloadOf(S));
+      merge(data);
+      const mine = payloadOf(S), body = JSON.stringify(mine);
+      if(body !== before){ persist(); const a = document.activeElement; if(!(a && a.closest && a.closest("#app input, #app textarea"))) render(); }
+      if(!data || JSON.stringify(payloadOf(data)) !== body){
+        const r = await gh("/contents/" + encPath(SY.path), {method:"PUT", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({message:"Little Log update", content:b64e(JSON.stringify({...mine, savedAt:new Date().toISOString()})),
+            ...(sha ? {sha} : {}), ...(SY.branch ? {branch:SY.branch} : {})})});
+        if((r.status === 409 || r.status === 422) && attempt < 3) continue;   // another device wrote first — merge again
+        if(!r.ok) throw await ghErr(r);
+      }
+      break;
+    }
+    SY.last = Date.now(); saveSync(); setSync("ok");
+  }catch(e){
+    setSync("error", e && e.message || "sync failed");
+  }finally{
+    syncing = false;
+    if(syncAgain){ syncAgain = false; scheduleSync(300); }
+  }
+}
+async function connectSync(){
+  const repo = ($("#sy-repo").value || "").trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "");
+  const path = ($("#sy-path").value || "").trim().replace(/^\//, "") || "littlelog.json";
+  const token = ($("#sy-token").value || "").trim();
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){ toast("Repository should look like owner/name"); return; }
+  if(!token){ toast("Paste your access token"); return; }
+  SY = {repo, path, token};
+  setSync("busy");
+  try{
+    const r = await gh(""); if(!r.ok) throw await ghErr(r);
+    const j = await r.json();
+    if(!j.private && !confirm(repo + " is PUBLIC — anyone on the internet could read your baby's log. Use it anyway?")){ SY = {repo, path}; setSync("off"); return; }
+    SY.branch = j.default_branch; saveSync();
+    await sync();
+    if(syncState === "ok"){ toast("Cloud sync is on"); render(); }
+  }catch(e){ SY = {repo, path}; saveSync(); setSync("error", "Couldn't connect: " + e.message); }
+}
+
 /* ---------- events ---------- */
 document.addEventListener("click", ev => {
   const b = ev.target.closest("button, rect.hit"); if(!b) return;
@@ -834,8 +979,12 @@ document.addEventListener("click", ev => {
     case "export": download("little-log-backup-"+dayKey(Date.now())+".json", JSON.stringify(S, null, 2), "application/json"); return;
     case "import": $("#importfile").click(); return;
     case "csv": return exportCsv();
-    case "sample": S.entries.push(...sampleData()); if(!S.baby.name) S.baby.name = "Baby"; if(!S.baby.birth) S.baby.birth = dayKey(addDays(Date.now(), -24)); save(); render(); toast("Sample data added"); return;
-    case "wipe": if(confirm("Delete every entry? This can't be undone (export a backup first if unsure).")){ S.entries = []; S.timers = {}; save(); render(); toast("All entries deleted"); } return;
+    case "sample": S.entries.push(...sampleData().map(e => ({...e, u:Date.now()}))); if(!S.baby.name) S.baby.name = "Baby"; if(!S.baby.birth) S.baby.birth = dayKey(addDays(Date.now(), -24)); save(); render(); toast("Sample data added"); return;
+    case "sync-connect": connectSync(); return;
+    case "sync-now": sync(); return;
+    case "syncbtn": if(syncOn()) sync(); else { tab = "settings"; render(); setTimeout(() => { const c = $("#synccard"); if(c) c.scrollIntoView({behavior:"smooth", block:"center"}); }, 50); } return;
+    case "sync-off": if(confirm("Stop syncing on this device? Your data stays here and in the repo.")){ SY = {}; saveSync(); setSync("off"); render(); } return;
+    case "wipe": if(confirm("Delete every entry? This can't be undone (export a backup first if unsure).")){ const now = Date.now(); S.entries.forEach(e => { S.deleted[e.id] = now; }); S.entries = []; S.timers = {}; save(); render(); toast("All entries deleted"); } return;
   }
 });
 document.addEventListener("change", ev => {
@@ -850,17 +999,20 @@ document.addEventListener("change", ev => {
         const d = JSON.parse(r.result);
         if(!d || !Array.isArray(d.entries)) throw 0;
         if(!confirm(`Replace current data with this backup (${d.entries.length} entries)?`)) return;
-        localStorage.setItem(KEY, JSON.stringify(d)); S = load(); save(); render(); toast("Backup restored");
+        localStorage.setItem(KEY, JSON.stringify(d)); S = load(); const now = Date.now(); S.entries.forEach(e => { e.u = now; delete S.deleted[e.id]; }); S.babyU = now; persist(); scheduleSync(); render(); toast("Backup restored");
       }catch(e){ toast("That file isn't a Little Log backup"); }
     };
     r.readAsText(t.files[0]); t.value = "";
   }
 });
 // keep "ago" labels and the home view fresh when returning to the app
-document.addEventListener("visibilitychange", () => { if(!document.hidden && !sheetEl) render(); });
-window.addEventListener("storage", e => { if(e.key === KEY){ S = load(); render(); refreshSheet(); } });
+document.addEventListener("visibilitychange", () => { if(!document.hidden){ if(!sheetEl) render(); sync(); } });
+window.addEventListener("online", () => sync());
+setInterval(() => { if(!document.hidden) sync(); }, 60e3);
+window.addEventListener("storage", e => { if(e.key === KEY){ S = load(); persist(); render(); refreshSheet(); } if(e.key === SYNC_KEY){ SY = loadSync(); updateSyncUi(); } });
 
 render();
+sync();
 </script>
 </body>
 </html>
