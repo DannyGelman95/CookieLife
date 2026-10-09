@@ -126,6 +126,12 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 label.f{display:block;margin-bottom:12px}
 label.f>span{display:block;font-size:12px;font-weight:650;color:var(--muted);margin:0 0 5px 2px}
 .inp{width:100%;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:11px 12px;min-height:44px}
+/* iOS Safari gives date inputs a fixed intrinsic width and centred text, so they overflow their card */
+input.inp{min-width:0;max-width:100%;display:block}
+input.inp[type="date"],input.inp[type="datetime-local"]{-webkit-appearance:none;appearance:none;text-align:left;line-height:20px}
+input.inp::-webkit-date-and-time-value{text-align:left;margin:0}
+input.inp::-webkit-datetime-edit{padding:0}
+.two>*{min-width:0}
 .inp:focus{outline:2px solid var(--accent);outline-offset:1px}
 textarea.inp{min-height:64px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
